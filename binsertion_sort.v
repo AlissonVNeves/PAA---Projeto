@@ -188,3 +188,34 @@ Fixpoint binsertion_sort (l: list nat) :=
 (* begin hide *)
 Require Import Permutation.
 (* end hide *)
+
+(* Teste com lista desordenada simples *)
+Compute (binsertion_sort [4; 3; 2; 1]).
+(* Esperado: [1; 2; 3; 4] *)
+
+(* Teste com elementos repetidos *)
+Compute (binsertion_sort [5; 1; 3; 1; 5]).
+(* Esperado: [1; 1; 3; 5; 5] *)
+
+(* Teste com lista vazia *)
+Compute (binsertion_sort []).
+(* Esperado: [] *)
+
+Example teste_sort_1: binsertion_sort [4; 1; 3; 2] = [1; 2; 3; 4].
+Proof.
+  vm_compute. 
+  reflexivity.
+Qed.
+
+Example teste_sort_2: binsertion_sort [10; 0; 5] = [0; 5; 10].
+Proof.
+  vm_compute.
+  reflexivity.
+Qed.
+
+Example teste_teorema_instancia: 
+  Sorted le (binsertion_sort [3; 1; 2]) /\ Permutation [3; 1; 2] (binsertion_sort [3; 1; 2]).
+Proof.
+   (* Teorema geral para provar este caso específico *)
+  apply binsertion_sort_correct.
+Qed.
