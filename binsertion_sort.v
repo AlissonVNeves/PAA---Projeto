@@ -115,9 +115,119 @@ Definition binsert x l :=
 Require Import Sorted.
 (* end hide *)
 
+ (* LEMA AUXILIAR *)
+Lemma insert_at_app: forall l i x,
+  i <= length l ->
+  insert_at i x l = firstn i l ++ x :: skipn i l.
+Proof.
+  induction l.
+  - intros i x H. destruct i; simpl in *; try lia. reflexivity.
+  - intros i0 x H. destruct i0.
+    + simpl. reflexivity.
+    + simpl. f_equal. apply IHl. simpl in H. lia.
+Qed.
+
+(* LEMA AUXILIAR *)
+Lemma sorted_split_merge: forall l1 l2 x,
+  Sorted le l1 -> Sorted le l2 ->
+  Forall (fun y => y <= x) l1 ->
+  Forall (fun y => x <= y) l2 ->
+  Sorted le (l1 ++ x :: l2).
+Proof.
+  intros l1 l2 x Sl1 Sl2 Fl1 Fl2.
+  induction Sl1.
+  (* Caso Base *)
+  - simpl. apply Sorted_cons.
+    + assumption.
+    + destruct l2.
+      * constructor.
+      * constructor. inversion Fl2. assumption.
+  (* Passo Indutivo *)
+  - simpl. apply Sorted_cons.
+    + apply IHSl1. inversion Fl1. assumption.
+    + destruct l.
+      * simpl. constructor. inversion Fl1. assumption.
+      * simpl. constructor. inversion H. assumption.
+Qed.
+
+(* LEMA AUXILIAR *)
+Lemma bsearch_split_prop: forall l x,
+  Sorted le l ->
+  Forall (fun y => y <= x) (firstn (bsearch x l) l) /\
+  Forall (fun y => x <= y) (skipn (bsearch x l) l).
+Proof.
+  Admitted.
+
+(* LEMA AUXILIAR *)
+Lemma Sorted_firstn : forall (l : list nat) (n : nat),
+  Sorted le l -> Sorted le (firstn n l).
+Proof.
+  intros l n H.
+  revert n.
+  induction H as [| head tail H_sorted IH H_rel].
+  - (* Caso Base: Lista vazia *)
+    intros n. simpl. destruct n; constructor.
+  - (* Caso Indutivo *)
+    intros n. destruct n.
+    + (* n = 0 *)
+      simpl. constructor.
+    + (* n > 0 *)
+      simpl. constructor.
+      * apply IH. (* A cauda também é ordenada *)
+      * (* Precisamos mostrar que a relação 'HdRel' se mantém para a lista truncada *)
+        destruct n.
+        -- simpl. constructor.
+        -- simpl. inversion H_rel. subst.
+  (* Caso 1: A lista cortada ficou vazia (firstn n tail = []) *)
+            constructor.
+
+            (* Caso 2: A lista cortada não é vazia (firstn n tail = b :: ...) *)
+            apply HdRel_cons.
+            (* Precisamos provar head <= b using H_rel e a igualdade *)
+            rewrite <- H0 in H_rel. inversion H_rel. assumption.
+Qed.
+
+Lemma Sorted_skipn : forall (l : list nat) (n : nat),
+  Sorted le l -> Sorted le (skipn n l).
+Proof.
+  intros l n.
+  revert l. 
+  induction n as [| n IH].
+  - (* Caso n = 0: não pule nada *)
+    intros l H. simpl. assumption.
+  - (* Caso n = S n: pule um, depois pule n *)
+    intros l H. destruct l.
+    + (* Lista vazia *)
+      simpl. constructor.
+    + (* Lista com cabeça e cauda *)
+      simpl. apply IH.
+      (* Se (a :: l) é ordenada, então l é ordenada *)
+      inversion H. assumption.
+Qed.
+
+(* --- TEOREMA PRINCIPAL: Correção do binsert --- *)
 Theorem binsert_correct: forall l x, Sorted le l -> Sorted le (binsert x l).
 Proof.
-Admitted.    
+  intros l x HSort.
+  unfold binsert.
+  
+  (* Passo 1: Transformar a inserção em concatenação de listas *)
+  rewrite insert_at_app.
+  2: { 
+    pose proof (bsearch_valid_pos l x). (* Traz '0 <= bsearch <= length' para o contexto *)
+    lia. 
+  }
+  
+  (* Passo 2: Usar as propriedades da busca binária *)
+  pose proof (bsearch_split_prop l x HSort) as [HLeft HRight].
+  
+  (* Passo 3: Provar que colar tudo mantém a ordem *)
+  apply sorted_split_merge.
+  - apply Sorted_firstn; assumption. (* A parte esquerda já era ordenada *)
+  - apply Sorted_skipn; assumption.  (* A parte direita já era ordenada *)
+  - assumption. (* A esquerda é <= x *)
+  - assumption. (* A direita é >= x *)
+Qed.   
 
 (**
    Alternativamente, podemos construir uma única função que combina a execução de [bsearch] e [insert_at]. A função [binsert x l] a seguir, recebe o elemento [x] e a lista ordenada [l] como argumentos e retorna uma permutação ordenada da lista [x::l]: 
